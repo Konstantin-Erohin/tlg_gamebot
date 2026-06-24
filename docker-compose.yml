@@ -1,0 +1,12 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tlg-bot
+    env_file:
+      - .env
+    volumes:
+      - ./logs.txt:/app/logs.txt
+      - ./database.db:/app/database.db
+    restart: unless-stopped
