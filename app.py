@@ -10,6 +10,7 @@ load_dotenv()
 
 from handlers.user_private import user_register_router, user_private_router
 from logger_config import init_logger
+from common.makeTables import makeTables
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ALLOWED_UPDATES = ['message', 'edited_message']
@@ -17,6 +18,9 @@ ALLOWED_UPDATES = ['message', 'edited_message']
 # Инициализация логера
 init_logger()
 logger = logging.getLogger(__name__) 
+
+# Создать/проверить таблицы с БД
+makeTables()
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
