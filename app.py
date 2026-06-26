@@ -11,6 +11,7 @@ load_dotenv()
 from handlers.user_private import user_register_router, user_private_router
 from logger_config import init_logger
 from common.makeTables import makeTables
+from common.bot_cmds_list import private
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ALLOWED_UPDATES = ['message', 'edited_message']
@@ -36,6 +37,9 @@ async def main() -> None:
 
         #Удалить кнопки (если пригодится)
         await bot.delete_my_commands(scope=types.BotCommandScopeAllPrivateChats())
+
+        # Настроить отображение Menu (снизу слева которое) для всех личных чатов
+        await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats())
 
         # Запустить бота
         await dp.start_polling(bot, allowed_updates=ALLOWED_UPDATES)
