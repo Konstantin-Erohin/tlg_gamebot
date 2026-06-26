@@ -389,7 +389,7 @@ def format_recommendation(response: str) -> str:
         if day_info.get('games', '') == 'Нет общих игр':
             return "❌ Нет подходящих дней с общими играми для встречи."
         
-        return f"📋 **Рекомендация по дню:**\n\n" \
+        return f"Рекомендации по дням для встречи:\n\n" \
                f"📅 День: {day_info.get('day', 'Не указан')}\n" \
                f"🕐 Время: {day_info.get('time', 'Не указано')}\n" \
                f"🎮 Игры: {day_info.get('games', 'Не указаны')}\n" \
