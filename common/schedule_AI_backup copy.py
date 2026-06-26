@@ -1,11 +1,8 @@
-# Это был долгий путь, но эта итерация щас самая нормальная
-# Дело и в промпте и в постобработке питоном
 import sqlite3
 import json
 import requests
 import logging
 import os
-import difflib
 from dotenv import load_dotenv
 
 # КОНФИГУРАЦИЯ
@@ -15,79 +12,13 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 LM_URL = os.getenv('LM_URL')
 MODEL_NAME = os.getenv('MODEL_NAME')
 TIMEOUT = 60  # Для бота уменьшаем таймаут
-SIMILARITY_THRESHOLD = 0.75  # 75% совпадения для игр
 
 logger = logging.getLogger(__name__)
 
 
-# ==================== ФУНКЦИИ ДЛЯ СРАВНЕНИЯ ИГР ====================
-
-def is_similar_game(game1, game2, threshold=SIMILARITY_THRESHOLD):
-    """
-    Проверяет, похожи ли две игры на threshold%
-    """
-    if not game1 or not game2:
-        return False
-    # Убираем пробелы и приводим к нижнему регистру
-    g1 = game1.lower().strip()
-    g2 = game2.lower().strip()
-    # Используем difflib для сравнения
-    ratio = difflib.SequenceMatcher(None, g1, g2).ratio()
-    return ratio >= threshold
-
-
-def find_common_games_for_participants(participants, users_dict):
-    """
-    Находит игры, которые есть у НАИБОЛЬШЕГО числа участников
-    Возвращает список игр и участников, у которых они есть
-    """
-    if not participants or len(participants) < 2:
-        return [], []
-    
-    # Собираем все игры всех участников
-    all_games = {}
-    for participant in participants:
-        user = users_dict.get(participant)
-        if not user:
-            continue
-        user_games = [g.strip().lower() for g in user['appropriate_events'].split(',')]
-        all_games[participant] = user_games
-    
-    # Находим игры, которые есть у 2+ участников
-    game_to_players = {}
-    for participant, games in all_games.items():
-        for game in games:
-            if game not in game_to_players:
-                game_to_players[game] = []
-            game_to_players[game].append(participant)
-    
-    # Находим максимальную группу
-    best_games = []
-    best_players = []
-    max_players = 1
-    
-    for game, players in game_to_players.items():
-        if len(players) > max_players:
-            max_players = len(players)
-            best_games = [game]
-            best_players = players
-        elif len(players) == max_players and max_players > 1:
-            best_games.append(game)
-            # Объединяем участников
-            for p in players:
-                if p not in best_players:
-                    best_players.append(p)
-    
-    if max_players >= 2:
-        return best_games, best_players
-    else:
-        return [], []
-
-
-# ==================== ФУНКЦИИ ДЛЯ РАБОТЫ С БД ====================
-
+#ФУНКЦИИ ДЛЯ РАБОТЫ С БД
+#Получает данные всех пользователей из БД
 def get_all_users_data():
-    """Получает данные всех пользователей из БД"""
     try:
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
@@ -118,8 +49,8 @@ def get_all_users_data():
         return []
 
 
+# Форматирует данные пользователей компактно
 def format_users_for_prompt(users):
-    """Форматирует данные пользователей компактно"""
     text = "Данные пользователей:\n"
     
     for i, user in enumerate(users, 1):
@@ -128,8 +59,8 @@ def format_users_for_prompt(users):
     return text
 
 
+# Создает промпт для нейронки
 def create_prompt(users):
-    """Создает промпт для нейронки"""
     users_data = format_users_for_prompt(users)
     
     prompt = f"""
@@ -145,7 +76,7 @@ def create_prompt(users):
 - "гномы" и "гном" → похожи на 80% → СОВПАДАЮТ ✅
 - "сигеймс" и "сигейм" → похожи на 86% → СОВПАДАЮТ ✅
 - "валхейм" и "ваха" → похожи на 40% → НЕ СОВПАДАЮТ ❌
-- "растед" и "раст" → похожи на 60% → НЕ СОВПАДАЮТ ❌
+- "растед" и "раст" → похожи на 60% → НЕ СОВПАДАЮТ ❌ (меньше 75%)
 - "баротравма" и "баро" → похожи на 50% → НЕ СОВПАДАЮТ ❌
 
 Как определять похожесть:
@@ -190,10 +121,8 @@ def create_prompt(users):
     return prompt
 
 
-# ==================== ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ДОСТУПНОСТИ НЕЙРОНКИ ====================
-
+# ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ДОСТУПНОСТИ НЕЙРОНКИ 
 def check_llm():
-    """Проверяет доступность нейронки"""
     try:
         response = requests.get("https://openrouter.ai/api/v1/models", timeout=3)
         return response.status_code == 200
@@ -201,14 +130,11 @@ def check_llm():
         return False
 
 
-# ==================== ФУНКЦИЯ ДЛЯ ЗАПРОСА К НЕЙРОНКЕ ====================
-
+# ФУНКЦИЯ ДЛЯ ЗАПРОСА К НЕЙРОНКЕ
+# Отправляет запрос к локальной модели через LM Studio API
 def ask_model(prompt):
-    """
-    Отправляет запрос к нейронке через OpenRouter API
-    """
     if not check_llm():
-        return "❌ Нейронка недоступна"
+        return "Нейронка недоступна"
     
     payload = {
         "model": MODEL_NAME,
@@ -217,6 +143,7 @@ def ask_model(prompt):
             {"role": "user", "content": prompt}
         ],
         "temperature": 0,  # Для стабильных ответов
+        #"temperature": 0.5,  # Даёт нестабильные ответы
         "max_tokens": 500,
         "stream": False
     }
@@ -249,83 +176,8 @@ def ask_model(prompt):
         return f"❌ Ошибка: {e}"
 
 
-# ==================== ФУНКЦИЯ ДЛЯ ПРОВЕРКИ И ИСПРАВЛЕНИЯ ИГР ====================
-
-def validate_and_fix_games(response: str, users: list) -> str:
-    """
-    Проверяет и исправляет игры в ответе нейронки
-    """
-    if not response or response.startswith('❌'):
-        return response
-    
-    # Создаем словарь пользователей для быстрого поиска
-    users_dict = {u['username']: u for u in users}
-    
-    # Парсим ответ на блоки дней
-    lines = response.split('\n')
-    day_blocks = []
-    current_day = {}
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-            
-        if line.startswith('----------------------'):
-            if current_day:
-                day_blocks.append(current_day)
-                current_day = {}
-            continue
-            
-        if line.startswith('📅 День:'):
-            current_day['day'] = line.replace('📅 День:', '').strip()
-        elif line.startswith('🕐 Время:'):
-            current_day['time'] = line.replace('🕐 Время:', '').strip()
-        elif line.startswith('🎮 Игры:'):
-            current_day['games'] = line.replace('🎮 Игры:', '').strip()
-        elif line.startswith('👥 Участники:'):
-            current_day['players'] = line.replace('👥 Участники:', '').strip()
-    
-    if current_day:
-        day_blocks.append(current_day)
-    
-    # Проверяем каждый блок
-    fixed_blocks = []
-    for day in day_blocks:
-        if 'players' in day:
-            participants = [p.strip() for p in day['players'].split(',')]
-            
-            # Находим реальные общие игры для этих участников
-            common_games, best_players = find_common_games_for_participants(participants, users_dict)
-            
-            if common_games:
-                day['games'] = ', '.join(common_games)
-                day['players'] = ', '.join(best_players)
-            else:
-                day['games'] = 'Нет общих игр'
-                # Если нет общих игр, показываем ВСЕХ участников дня
-                day['players'] = ', '.join(participants)
-        
-        fixed_blocks.append(day)
-    
-    # Собираем обратно
-    result = []
-    for day in fixed_blocks:
-        result.append(f"📅 День: {day.get('day', 'Не указан')}")
-        result.append(f"🕐 Время: {day.get('time', 'Не указано')}")
-        result.append(f"🎮 Игры: {day.get('games', 'Не указаны')}")
-        result.append(f"👥 Участники: {day.get('players', 'Не указаны')}")
-        result.append("----------------------")
-    
-    return '\n'.join(result[:-1])
-
-
-# ==================== ФУНКЦИЯ ДЛЯ ФОРМАТИРОВАНИЯ ОТВЕТА ====================
-
+# ФУНКЦИЯ ДЛЯ ФОРМАТИРОВАНИЯ ОТВЕТА ДЛЯ БОТА
 def format_recommendation(response: str) -> str:
-    """
-    Форматирует ответ для телеграм-бота, скрывая дни без общих игр
-    """
     if not response or response.startswith('❌'):
         return response
     
@@ -333,7 +185,6 @@ def format_recommendation(response: str) -> str:
     if '----------------------' in response:
         parts = response.split('----------------------')
         result = "Рекомендации по дням для встречи:\n\n"
-        has_valid_days = False
         
         for part in parts:
             part = part.strip()
@@ -356,50 +207,18 @@ def format_recommendation(response: str) -> str:
                     day_info['players'] = line.replace('👥 Участники:', '').strip()
             
             if day_info:
-                # Пропускаем дни с "Нет общих игр"
-                if day_info.get('games', '') == 'Нет общих игр':
-                    continue
-                
-                has_valid_days = True
                 result += f"📅 День: {day_info.get('day', 'Не указан')}\n"
                 result += f"🕐 Время: {day_info.get('time', 'Не указано')}\n"
                 result += f"🎮 Игры: {day_info.get('games', 'Не указаны')}\n"
                 result += f"👥 Участники: {day_info.get('players', 'Не указаны')}\n\n"
         
-        if not has_valid_days:
-            return "❌ Нет подходящих дней с общими играми для встречи."
-        
         return result
     
-    # Если один день - проверяем и его
-    lines = response.split('\n')
-    day_info = {}
-    for line in lines:
-        line = line.strip()
-        if line.startswith('📅 День:'):
-            day_info['day'] = line.replace('📅 День:', '').strip()
-        elif line.startswith('🕐 Время:'):
-            day_info['time'] = line.replace('🕐 Время:', '').strip()
-        elif line.startswith('🎮 Игры:'):
-            day_info['games'] = line.replace('🎮 Игры:', '').strip()
-        elif line.startswith('👥 Участники:'):
-            day_info['players'] = line.replace('👥 Участники:', '').strip()
-    
-    if day_info:
-        if day_info.get('games', '') == 'Нет общих игр':
-            return "❌ Нет подходящих дней с общими играми для встречи."
-        
-        return f"📋 **Рекомендация по дню:**\n\n" \
-               f"📅 День: {day_info.get('day', 'Не указан')}\n" \
-               f"🕐 Время: {day_info.get('time', 'Не указано')}\n" \
-               f"🎮 Игры: {day_info.get('games', 'Не указаны')}\n" \
-               f"👥 Участники: {day_info.get('players', 'Не указаны')}"
-    
+    # Если один день - просто возвращаем как есть
     return response
 
 
-# ==================== ОСНОВНАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ РЕКОМЕНДАЦИИ ====================
-
+# ОСНОВНАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ РЕКОМЕНДАЦИИ
 def get_recommendation() -> str:
     """
     Основная функция для получения рекомендации
@@ -421,15 +240,11 @@ def get_recommendation() -> str:
     if response.startswith('❌'):
         return response
     
-    # 5. Проверяем и исправляем игры в ответе
-    validated_response = validate_and_fix_games(response, users)
-    
-    # 6. Форматируем для телеграм-бота
-    return format_recommendation(validated_response)
+    # 5. Форматируем для телеграм-бота
+    return format_recommendation(response)
 
 
-# ==================== ТЕСТОВАЯ ФУНКЦИЯ ====================
-
+# ТЕСТОВАЯ ФУНКЦИЯ, С БОТОВ НЕ СВЯЗАНА
 def main():
     print("=" * 60)
     print("🧠 АНАЛИЗАТОР ОПТИМАЛЬНОГО ВРЕМЕНИ")
@@ -460,28 +275,19 @@ def main():
     response = ask_model(prompt)
     
     print("=" * 60)
-    print("🧠 ОТВЕТ НЕЙРОНКИ (сырой):")
+    print("🧠 ОТВЕТ НЕЙРОНКИ:")
     print("=" * 60)
     print()
     print(response)
     print()
     print("=" * 60)
     
-    # Проверяем и исправляем игры
-    validated_response = validate_and_fix_games(response, users)
-    
-    print("📋 ПРОВЕРЕННЫЙ ОТВЕТ:")
-    print("=" * 60)
-    print()
-    print(validated_response)
-    print()
-    print("=" * 60)
-    
     # Форматируем для телеграма
+    print("=" * 60)
     print("📋 ФОРМАТИРОВАННЫЙ ОТВЕТ ДЛЯ ТЕЛЕГРАМА:")
     print("=" * 60)
     print()
-    print(format_recommendation(validated_response))
+    print(format_recommendation(response))
     print()
     print("=" * 60)
 
