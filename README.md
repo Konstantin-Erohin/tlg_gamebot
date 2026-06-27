@@ -5,14 +5,14 @@
 4) touch logs.txt
 5) touch database.db
 6) touch .env и заполнить его
-7) docker compose up -d --build
+7) docker compose up -d --build (находясь в /opt/tlg_gamebot)
 
-ENV:
-DB_PATH=database.db
-BOT_TOKEN=тут_токен_бота
-OPENROUTER_API_KEY=ключ_api_из_openrouter (надо зарегаться сначала и получить ключ)
-LM_URL=https://openrouter.ai/api/v1/chat/completions
-MODEL_NAME=google/gemma-4-31b-it:free
+ENV:  
+DB_PATH=database.db (по дефолту)  
+BOT_TOKEN=тут_токен_бота  
+OPENROUTER_API_KEY=ключ_api_из_openrouter (надо зарегаться сначала и получить ключ)  
+LM_URL=https://openrouter.ai/api/v1/chat/completions (по дефолту)  
+MODEL_NAME=google/gemma-4-31b-it:free (по дефолту)  
 
 VOLUMES:  
 logs.txt - тут логи. Volume прокинут с /app/logs.txt внутри контейнера до /opt/tlg_gamebot/logs.txt на машине (т.е. просто до корень_проекта/logs.txt).  
