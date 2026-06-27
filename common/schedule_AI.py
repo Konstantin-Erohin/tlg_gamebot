@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def is_similar_game(game1, game2, threshold=SIMILARITY_THRESHOLD):
     """
-    Проверяет, похожи ли две игры на threshold%
+    Проверяет, похожи ли две игры на threshold %
     """
     if not game1 or not game2:
         return False
