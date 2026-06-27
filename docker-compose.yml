@@ -3,7 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tlg-bot
+    image: tlg_gamebot
+    container_name: tlg_gamebot
     env_file:
       - .env
     volumes:
