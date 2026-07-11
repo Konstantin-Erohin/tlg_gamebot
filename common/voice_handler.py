@@ -43,26 +43,21 @@ async def transcribe_voice_message(bot, file_id: str) -> str:
     temp_path = None
     try:
         # Получаем информацию о файле
-        logger.info(f"Получение информации о файле {file_id}...")
         file_info = await bot.get_file(file_id)
         
         # Создаем временный файл
         with tempfile.NamedTemporaryFile(suffix='.oga', delete=False) as tmp_file:
             temp_path = tmp_file.name
         
-        # Скачиваем файл (новый способ в aiogram 3.x)
-        logger.info(f"Скачивание аудио в {temp_path}...")
+        # Скачиваем файл
         await bot.download_file(file_info.file_path, temp_path)
-        logger.info(f"Аудио сохранено: {temp_path}")
         
         # Получаем модель
         model = get_whisper_model()
         
         # Расшифровка
-        logger.info("Начинаю расшифровку...")
         result = model.transcribe(temp_path, fp16=False)
         text = result["text"].strip()
-        logger.info(f"Расшифрованный текст: {text[:100]}...")
         
         return text if text else "Не удалось распознать речь"
         
@@ -74,6 +69,5 @@ async def transcribe_voice_message(bot, file_id: str) -> str:
         if temp_path and os.path.exists(temp_path):
             try:
                 os.unlink(temp_path)
-                logger.info(f"Временный файл удален: {temp_path}")
             except Exception as e:
                 logger.warning(f"Не удалось удалить временный файл {temp_path}: {e}")

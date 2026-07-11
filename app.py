@@ -9,12 +9,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from handlers.user_private import user_register_router, user_private_router
+from handlers.group_voice import group_voice_router
 from logger_config import init_logger
 from common.makeTables import makeTables
 from common.bot_cmds_list import private
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ALLOWED_UPDATES = ['message', 'edited_message']
+ALLOWED_UPDATES = ['message',
+                   'edited_message',
+                   "message_reaction", # Для групп (транскрибация)
+                   "message_reaction_count" # Для супергрупп (транскрибация)
+                   ]
 
 # Инициализация логера
 init_logger()
@@ -27,8 +32,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # Порядок роутреров важен (вроде)
+dp.include_router(group_voice_router)
 dp.include_router(user_private_router)
 dp.include_router(user_register_router)
+
 
 async def main() -> None:
     try:
