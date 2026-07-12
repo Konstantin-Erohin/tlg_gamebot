@@ -1,12 +1,5 @@
-# Используем Python 3.10+ для лучшей совместимости с whisper
-FROM python:3.10-slim
-
-# Устанавливаем системные зависимости для whisper
-# rm -rf /var/lib/apt/lists/* нужно для удаления установщиков,
-# чтобы в итоге контейнер весил меньше
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# Используем официальный образ Python
+FROM python:3.9-slim
 
 # Устанавливаем uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -20,27 +13,14 @@ COPY pyproject.toml uv.lock ./
 # Устанавливаем зависимости через uv sync (без dev-зависимостей)
 RUN uv sync --frozen --no-dev
 
-# Предзагружаем модель whisper (опционально, ускоряет первый запуск)
-# !!!в whisper.load_model('base') указать нужную модель!!!
-RUN mkdir -p /root/.cache/whisper && \
-    uv run python3 -c "import whisper; whisper.load_model('base')" && \
-    echo "Модель Whisper загружена"
-
 # Копируем исходный код (исключая то, что в .dockerignore)
 COPY . .
 
 # Создаём volume для логов и базы данных (монтируются как отдельные файлы)
-VOLUME ["/app/logs.txt", "/app/database.db", "/root/.cache/whisper"]
+VOLUME ["/app/logs.txt", "/app/database.db"]
 
 # Переменная окружения для корректного вывода логов
 ENV PYTHONUNBUFFERED=1
-# Модель whisper по умолчанию
-ENV WHISPER_MODEL=base
 
 # Запускаем бота через uv run, чтобы подхватить виртуальное окружение
-# !!! Так не надо, потому-что с внедрением whisper проект стал
-# что-то докачивать каждый раз при старте, хотя всё установлено
-#CMD ["uv", "run", "python3", "app.py"]
-
-# Запускаем Python напрямую из виртуального окружения
-CMD ["/app/.venv/bin/python3", "app.py"]
+CMD ["uv", "run", "python3", "app.py"]

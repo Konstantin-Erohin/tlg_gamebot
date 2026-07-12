@@ -17,4 +17,3 @@ test/
 logs.txt
 database.db
 .DS_Store
-diagnoseAI.py
