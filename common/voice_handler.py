@@ -9,18 +9,20 @@ logger = logging.getLogger(__name__)
 # Глобальная переменная для модели (загружается один раз)
 _whisper_model = None
 
+
+# Загрузка модели whisper. Загружается один раз при первом вызове
 def get_whisper_model():
-    """
-    Ленивая загрузка модели whisper.
-    Загружается один раз при первом вызове.
-    """
     global _whisper_model
     
     if _whisper_model is None:
         logger.info("Загрузка модели Whisper (base)...")
         # В Docker можно указать модель через переменную окружения
+        # Если WHISPER_MODEL не указана, то берётся base
         model_name = os.getenv('WHISPER_MODEL', 'base')
         try:
+            # whisper.load_model проверяет /root/.cache/whisper/ — есть ли там base.pt
+            # Если есть — загружает из кеша
+            # Если нет — скачивает из интернета и сохраняет в кеш
             _whisper_model = whisper.load_model(model_name)
             logger.info(f"Модель Whisper ({model_name}) загружена")
         except Exception as e:
@@ -29,17 +31,9 @@ def get_whisper_model():
     
     return _whisper_model
 
+
+# Скачивает голосовое сообщение из Telegram и расшифровывает его
 async def transcribe_voice_message(bot, file_id: str) -> str:
-    """
-    Скачивает голосовое сообщение из Telegram и расшифровывает его.
-    
-    Args:
-        bot: Экземпляр бота Telegram
-        file_id: ID файла в Telegram
-    
-    Returns:
-        str: Расшифрованный текст
-    """
     temp_path = None
     try:
         # Получаем информацию о файле

@@ -413,14 +413,12 @@ async def invalid_appropriate_events(message: types.Message, state: FSMContext):
     await message.answer("Вы ввели недопустимые данные, введите предпочитаемые события:")
 
 
+# Обработчик голосовых сообщений.
+# Автоматически расшифровывает и отправляет текст
 @user_private_router.message(ChatTypeFilter(['private']), F.voice)
 async def voice_message_handler(message: types.Message, bot):
-    """
-    Обработчик голосовых сообщений.
-    Автоматически расшифровывает и отправляет текст.
-    """
     try:
-        # Отправляем индикатор набора текста
+        # Отправляем индикатор набора текста "печатает..."
         await bot.send_chat_action(message.chat.id, "typing")
         
         # Расшифровываем аудио
@@ -428,13 +426,10 @@ async def voice_message_handler(message: types.Message, bot):
         
         # Отправляем результат
         await message.reply(
-            f"🎤 <b>Расшифровка голосового сообщения:</b>\n\n{text}",
+            f"✍️ <b>Расшифровка голосового сообщения:</b>\n\n{text}",
             parse_mode="HTML"
         )
         
     except Exception as e:
         logger.error(f"Ошибка в voice_message_handler: {e}")
-        await message.reply(
-            "Не удалось расшифровать голосовое сообщение.\n"
-            "Возможно, файл поврежден или слишком длинный."
-        )
+        await message.reply("❌ Не удалось расшифровать голосовое сообщение")

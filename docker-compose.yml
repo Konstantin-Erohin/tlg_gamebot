@@ -10,5 +10,4 @@ services:
     volumes:
       - ./logs.txt:/app/logs.txt
       - ./database.db:/app/database.db
-      - ./cache_whisper:/root/.cache/whisper
     restart: unless-stopped

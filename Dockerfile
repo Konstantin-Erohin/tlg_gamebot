@@ -2,6 +2,8 @@
 FROM python:3.10-slim
 
 # Устанавливаем системные зависимости для whisper
+# rm -rf /var/lib/apt/lists/* нужно для удаления установщиков,
+# чтобы в итоге контейнер весил меньше
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
@@ -19,9 +21,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Предзагружаем модель whisper (опционально, ускоряет первый запуск)
-#RUN mkdir -p /root/.cache/whisper && \
-#    python3 -c "import whisper; whisper.load_model('base')" && \
-#    echo "Модель Whisper загружена"
+# !!!в whisper.load_model('base') указать нужную модель!!!
+RUN mkdir -p /root/.cache/whisper && \
+    uv run python3 -c "import whisper; whisper.load_model('base')" && \
+    echo "Модель Whisper загружена"
 
 # Копируем исходный код (исключая то, что в .dockerignore)
 COPY . .
@@ -35,4 +38,9 @@ ENV PYTHONUNBUFFERED=1
 ENV WHISPER_MODEL=base
 
 # Запускаем бота через uv run, чтобы подхватить виртуальное окружение
-CMD ["uv", "run", "python3", "app.py"]
+# !!! Так не надо, потому-что с внедрением whisper проект стал
+# что-то докачивать каждый раз при старте, хотя всё установлено
+#CMD ["uv", "run", "python3", "app.py"]
+
+# Запускаем Python напрямую из виртуального окружения
+CMD ["/app/.venv/bin/python3", "app.py"]
