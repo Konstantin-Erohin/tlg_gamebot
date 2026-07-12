@@ -18,6 +18,7 @@ from aiogram.utils.formatting import (
 
 from filters.chat_types import ChatTypeFilter, IsRegistered
 from common.schedule_AI import get_recommendation, check_llm
+from common.voice_handler import transcribe_voice_message
 
 # КОНСТАНТЫ
 DB_PATH = os.getenv('DB_PATH')
@@ -410,3 +411,25 @@ async def add_appropriate_events(message: types.Message, state: FSMContext):
 @user_private_router.message(ChatTypeFilter(['private']), EditProf.appropriate_events)
 async def invalid_appropriate_events(message: types.Message, state: FSMContext):
     await message.answer("Вы ввели недопустимые данные, введите предпочитаемые события:")
+
+
+# Обработчик голосовых сообщений.
+# Автоматически расшифровывает и отправляет текст
+@user_private_router.message(ChatTypeFilter(['private']), F.voice)
+async def voice_message_handler(message: types.Message, bot):
+    try:
+        # Отправляем индикатор набора текста "печатает..."
+        await bot.send_chat_action(message.chat.id, "typing")
+        
+        # Расшифровываем аудио
+        text = await transcribe_voice_message(bot, message.voice.file_id)
+        
+        # Отправляем результат
+        await message.reply(
+            f"✍️ <b>Расшифровка голосового сообщения:</b>\n\n{text}",
+            parse_mode="HTML"
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка в voice_message_handler: {e}")
+        await message.reply("❌ Не удалось расшифровать голосовое сообщение")
