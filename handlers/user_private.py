@@ -1,6 +1,8 @@
 import sqlite3
 from pprint import pprint
 import logging
+import requests
+import urllib3
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -23,7 +25,10 @@ from common.schedule_AI import get_recommendation, check_llm
 DB_PATH = os.getenv('DB_PATH')
 
 # Инициализировать логгер
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger(__name__)
+
+# Отключить ошибки SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Инициализировать роутеры
 user_register_router = Router()
@@ -83,6 +88,7 @@ async def menu_cmd(message: types.Message) -> None:
             "/user Имя - посмотреть профиль пользователя",
             "/users - посмотреть профили всех пользователей",
             "/schedule - посмотреть рекомандации по событиям",
+            "/weather - посмотреть текущую погоду в Омске",
             marker="🟡 " # yellow
         ),
         sep="\n----------------------\n",
@@ -105,6 +111,7 @@ async def menu_cmd(message: types.Message) -> None:
         "/user Имя - посмотреть профиль пользователя",
         "/users - посмотреть профили всех пользователей",
         "/schedule - посмотреть рекомандации по событиям",
+        "/weather - посмотреть текущую погоду в Омске",
         marker="🟢 ",
     )
     # Без parse_mode="HTML" выдаёт не жирный текст, а <b>текст<\b>
@@ -279,6 +286,36 @@ async def schedule_cmd(message: types.Message) -> None:
         await wait_msg.delete()
         await message.answer("❌ Произошла ошибка при получении рекомендации. Попробуйте позже.")
 
+
+@user_private_router.message(Command('weather'))
+async def weather_cmd(message: types.Message) -> None:
+    try:
+        # Запрос к Go серверу (контейнеры в одной docker-сети)
+        response = requests.get("https://weather-forecast:8080/weather", verify=False)
+        response.raise_for_status()
+        data = response.json()
+
+        # Форматируем ответ для пользователя
+        city = data.get("name", "Омск")
+        temp = data["main"]["temp"]
+        feels_like = data["main"]["feels_like"]
+        description = data["weather"][0]["description"]
+        humidity = data["main"]["humidity"]
+        wind_speed = data["wind"]["speed"]
+
+        weather_text = (
+            f"🌍 Погода в {city}:\n"
+            f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
+            f"☁️ {description.capitalize()}\n" # capitalize() делает первую букву заглавной
+            f"💧 Влажность: {humidity}%\n"
+            f"💨 Ветер: {wind_speed} м/с"
+        )
+
+        await message.answer(weather_text)
+
+    except Exception as e:
+        await message.answer("❌ Не удалось получить погоду. Попробуйте позже.")
+        logging.error(f"Ошибка запроса погоды: {e}")
 
 
 # Код ниже для машины состояний (FSM)
