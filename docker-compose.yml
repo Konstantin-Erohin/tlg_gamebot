@@ -11,3 +11,8 @@ services:
       - ./logs.txt:/app/logs.txt
       - ./database.db:/app/database.db
     restart: unless-stopped
+    networks:
+      - services_network
+networks:
+  services_network:
+    name: services_network
