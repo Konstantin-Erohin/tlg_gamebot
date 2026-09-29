@@ -6,4 +6,5 @@ private = [
     BotCommand(command='users', description='Посмотреть профили всех пользователей'),
     BotCommand(command='editprof', description='Отредактировать профиль (через ЛС)'),
     BotCommand(command='schedule', description='Посмотреть рекомандации по событиям'),
+    BotCommand(command='weather', description='Посмотреть погоду'),
 ]
